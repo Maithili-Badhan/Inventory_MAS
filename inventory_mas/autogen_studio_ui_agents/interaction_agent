@@ -1,0 +1,78 @@
+{
+  "provider": "autogen_agentchat.agents.AssistantAgent",
+  "component_type": "agent",
+  "version": 1,
+  "component_version": 1,
+  "description": "An agent responsible for interacting with suppliers and retailers.",
+  "label": "Interaction Agent",
+  "config": {
+    "name": "interaction",
+    "model_client": {
+      "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+      "component_type": "model",
+      "version": 1,
+      "component_version": 1,
+      "description": "Chat completion client for OpenAI hosted models.",
+      "label": "OpenAIChatCompletionClient",
+      "config": {
+        "model": "gpt-3.5-turbo",
+        "temperature": 0.2
+      }
+    },
+    "tools": [
+      {
+        "provider": "autogen_core.tools.FunctionTool",
+        "component_type": "tool",
+        "version": 1,
+        "component_version": 1,
+        "description": "Sends order requests to suppliers.",
+        "label": "request_supplier",
+        "config": {
+          "source_code": "def request_supplier(supplier_name: str, order_details: dict):\n    # Logic to send order request to the supplier\n    return f\"Order sent to {supplier_name}: {order_details}\"",
+          "name": "request_supplier",
+          "description": "Sends an order request to a specified supplier."
+        }
+      },
+      {
+        "provider": "autogen_core.tools.FunctionTool",
+        "component_type": "tool",
+        "version": 1,
+        "component_version": 1,
+        "description": "Checks retailer stock levels and sales trends.",
+        "label": "check_retailer_stock",
+        "config": {
+          "source_code": "def check_retailer_stock(retailer_name: str):\n    # Logic to fetch stock data from retailer\n    return f\"Stock data retrieved for {retailer_name}\"",
+          "name": "check_retailer_stock",
+          "description": "Retrieves stock levels from a retailer."
+        }
+      },
+      {
+        "provider": "autogen_core.tools.FunctionTool",
+        "component_type": "tool",
+        "version": 1,
+        "component_version": 1,
+        "description": "Sends supply status updates to the orchestration agent.",
+        "label": "update_orchestration",
+        "config": {
+          "source_code": "def update_orchestration(status: str):\n    # Logic to update the orchestration agent\n    return f\"Orchestration agent updated with status: {status}\"",
+          "name": "update_orchestration",
+          "description": "Updates the orchestration agent with supply chain data."
+        }
+      }
+    ],
+    "model_context": {
+      "provider": "autogen_core.model_context.UnboundedChatCompletionContext",
+      "component_type": "chat_completion_context",
+      "version": 1,
+      "component_version": 1,
+      "description": "An unbounded chat completion context that keeps a view of all the messages.",
+      "label": "UnboundedChatCompletionContext",
+      "config": {}
+    },
+    "description": "An agent that facilitates communication between suppliers, retailers, and the orchestration system.",
+    "system_message": "You are the Interaction Agent responsible for: \n\n1. Requesting orders from suppliers based on inventory levels.\n2. Checking retailer stock trends.\n3. Sending supply updates to the Orchestration Agent.\n\nRules:\n- Prioritize reliable suppliers with shorter delivery times.\n- Alert the Orchestration Agent if retailer stock is critically low.\n- Log all interactions for tracking and debugging.",
+    "model_client_stream": false,
+    "reflect_on_tool_use": false,
+    "tool_call_summary_format": "{result}"
+  }
+}
