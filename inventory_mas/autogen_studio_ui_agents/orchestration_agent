@@ -1,0 +1,119 @@
+{
+  "provider": "autogen_agentchat.agents.AssistantAgent",
+  "component_type": "agent",
+  "version": 1,
+  "component_version": 1,
+  "description": "An agent that ensures smooth communication.",
+  "label": "Orchestration Agent",
+  "config": {
+    "name": "orchestration",
+    "model_client": {
+      "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+      "component_type": "model",
+      "version": 1,
+      "component_version": 1,
+      "description": "Chat completion client for OpenAI hosted models.",
+      "label": "OpenAIChatCompletionClient",
+      "config": {
+        "model": "gpt-3.5-turbo",
+        "temperature": 0.2
+      }
+    },
+    "tools": [
+      {
+        "provider": "autogen_core.tools.FunctionTool",
+        "component_type": "tool",
+        "version": 1,
+        "component_version": 1,
+        "description": "Sends a message to a specific agent.",
+        "label": "send_message",
+        "config": {
+          "source_code": "from autogen.agentchat import Agent\n\ndef send_message(agent_name: str, message: str):\n    agent = Agent(agent_name)\n    agent.send(message)\n    return f\"Message sent to {agent_name}: {message}\"",
+          "name": "send_message",
+          "description": "Sends a message to a specific agent.",
+          "global_imports": [
+            {
+              "module": "autogen.agentchat",
+              "imports": ["Agent"]
+            }
+          ],
+          "has_cancellation_support": false
+        }
+      },
+      {
+        "provider": "autogen_core.tools.FunctionTool",
+        "component_type": "tool",
+        "version": 1,
+        "component_version": 1,
+        "description": "Fetches recent messages from a Kafka topic.",
+        "label": "query_kafka",
+        "config": {
+          "source_code": "from kafka import KafkaConsumer\n\ndef query_kafka(topic: str, bootstrap_servers=['localhost:9092']):\n    consumer = KafkaConsumer(topic, bootstrap_servers=bootstrap_servers, auto_offset_reset='latest')\n    messages = []\n    for message in consumer:\n        messages.append(message.value.decode('utf-8'))\n        if len(messages) >= 5:\n            break\n    consumer.close()\n    return messages",
+          "name": "query_kafka",
+          "description": "Fetches recent messages from a Kafka topic.",
+          "global_imports": [
+            {
+              "module": "kafka",
+              "imports": ["KafkaConsumer"]
+            }
+          ],
+          "has_cancellation_support": false
+        }
+      },
+      {
+        "provider": "autogen_core.tools.FunctionTool",
+        "component_type": "tool",
+        "version": 1,
+        "component_version": 1,
+        "description": "Executes an SQL query on the inventory database.",
+        "label": "query_sql",
+        "config": {
+          "source_code": "import sqlite3\n\ndef query_sql(query: str, db_path='inventory.db'):\n    conn = sqlite3.connect(db_path)\n    cursor = conn.cursor()\n    cursor.execute(query)\n    result = cursor.fetchall()\n    conn.close()\n    return result",
+          "name": "query_sql",
+          "description": "Executes an SQL query on the inventory database.",
+          "global_imports": [
+            {
+              "module": "sqlite3",
+              "imports": []
+            }
+          ],
+          "has_cancellation_support": false
+        }
+      },
+      {
+        "provider": "autogen_core.tools.FunctionTool",
+        "component_type": "tool",
+        "version": 1,
+        "component_version": 1,
+        "description": "Logs actions and decisions made by the Orchestration Agent.",
+        "label": "log_action",
+        "config": {
+          "source_code": "import logging\nlogging.basicConfig(filename='orchestration.log', level=logging.INFO, format='%(asctime)s - %(message)s')\n\ndef log_action(action: str):\n    logging.info(action)\n    return f\"Logged action: {action}\"",
+          "name": "log_action",
+          "description": "Logs actions and decisions made by the Orchestration Agent.",
+          "global_imports": [
+            {
+              "module": "logging",
+              "imports": []
+            }
+          ],
+          "has_cancellation_support": false
+        }
+      }
+    ],
+    "model_context": {
+      "provider": "autogen_core.model_context.UnboundedChatCompletionContext",
+      "component_type": "chat_completion_context",
+      "version": 1,
+      "component_version": 1,
+      "description": "An unbounded chat completion context that keeps a view of all the messages.",
+      "label": "UnboundedChatCompletionContext",
+      "config": {}
+    },
+    "description": "An agent that verifies and summarizes information.",
+    "system_message": "You are an Orchestration Agent responsible for coordinating multiple agents in a multi-agent system (MAS) for inventory management. \n\nYour tasks include:\n1. Resolving conflicts between agents (e.g., Pricing vs. Supplier decisions).\n2. Ensuring logical execution order (e.g., restocking before price hikes).\n3. Managing message routing between agents.\n4. Prioritizing critical tasks (e.g., low inventory restocking over pricing changes).\n5. Generating final execution commands based on all agent inputs.\n\nRules:\n- If stock is critically low, prioritize supplier restocking before price changes.\n- If multiple suppliers are available, prefer the most reliable one.\n- If demand forecast is uncertain, request clarification before finalizing decisions.\n- Log all actions for debugging and tracking.",
+    "model_client_stream": false,
+    "reflect_on_tool_use": false,
+    "tool_call_summary_format": "{result}"
+  }
+}
