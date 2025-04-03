@@ -1,0 +1,106 @@
+{
+  "provider": "autogen_agentchat.agents.AssistantAgent",
+  "component_type": "agent",
+  "version": 1,
+  "component_version": 1,
+  "description": "Predicts future demand using historical sales data stored in a vector database.",
+  "label": "Demand Forecasting Agent",
+  "config": {
+    "name": "demand_forecasting",
+    "model_client": {
+      "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+      "component_type": "model",
+      "version": 1,
+      "component_version": 1,
+      "description": "Chat completion client for OpenAI hosted models.",
+      "label": "OpenAIChatCompletionClient",
+      "config": {
+        "model": "gpt-3.5-turbo",
+        "temperature": 0.3
+      }
+    },
+    "tools": [
+      {
+        "provider": "autogen_core.tools.FunctionTool",
+        "component_type": "tool",
+        "version": 1,
+        "component_version": 1,
+        "description": "Fetches historical sales data from the Vector DB.",
+        "label": "fetch_sales_data",
+        "config": {
+          "source_code": "import pinecone\nimport numpy as np\n\npinecone.init(api_key='YOUR_API_KEY', environment='us-west1-gcp')\nindex = pinecone.Index('sales_data')\n\ndef fetch_sales_data(query_vector: list, top_k: int = 5):\n    results = index.query(query_vector, top_k=top_k, include_metadata=True)\n    return [result['metadata'] for result in results['matches']]",
+          "name": "fetch_sales_data",
+          "description": "Retrieves past sales data using RAG from Pinecone.",
+          "global_imports": [
+            {
+              "module": "pinecone",
+              "imports": []
+            },
+            {
+              "module": "numpy",
+              "imports": []
+            }
+          ],
+          "has_cancellation_support": false
+        }
+      },
+      {
+        "provider": "autogen_core.tools.FunctionTool",
+        "component_type": "tool",
+        "version": 1,
+        "component_version": 1,
+        "description": "Runs a demand forecasting model using past sales data.",
+        "label": "run_forecast",
+        "config": {
+          "source_code": "import pandas as pd\nfrom statsmodels.tsa.arima.model import ARIMA\n\ndef run_forecast(sales_data: list):\n    df = pd.DataFrame(sales_data)\n    df['date'] = pd.to_datetime(df['date'])\n    df.set_index('date', inplace=True)\n    model = ARIMA(df['sales'], order=(5,1,0))\n    model_fit = model.fit()\n    forecast = model_fit.forecast(steps=7)\n    return forecast.tolist()",
+          "name": "run_forecast",
+          "description": "Predicts future demand using an ARIMA model.",
+          "global_imports": [
+            {
+              "module": "pandas",
+              "imports": []
+            },
+            {
+              "module": "statsmodels.tsa.arima.model",
+              "imports": ["ARIMA"]
+            }
+          ],
+          "has_cancellation_support": false
+        }
+      },
+      {
+        "provider": "autogen_core.tools.FunctionTool",
+        "component_type": "tool",
+        "version": 1,
+        "component_version": 1,
+        "description": "Sends the demand forecast to the Orchestration Agent.",
+        "label": "send_forecast",
+        "config": {
+          "source_code": "def send_forecast(forecast: list):\n    agent = AgentManager.get_agent('orchestration')\n    if agent:\n        message = f'Predicted demand for next 7 days: {forecast}'\n        agent.receive_message(message)\n        return 'Forecast sent successfully.'\n    return 'Orchestration Agent not found.'",
+          "name": "send_forecast",
+          "description": "Sends forecast results to the Orchestration Agent.",
+          "global_imports": [
+            {
+              "module": "autogen",
+              "imports": ["AgentManager"]
+            }
+          ],
+          "has_cancellation_support": false
+        }
+      }
+    ],
+    "model_context": {
+      "provider": "autogen_core.model_context.UnboundedChatCompletionContext",
+      "component_type": "chat_completion_context",
+      "version": 1,
+      "component_version": 1,
+      "description": "An unbounded chat completion context that keeps a view of all the messages.",
+      "label": "UnboundedChatCompletionContext",
+      "config": {}
+    },
+    "system_message": "You are a Demand Forecasting Agent responsible for predicting future demand based on historical sales data stored in a vector database. \n\nYour tasks include:\n1. Fetching relevant historical sales data using RAG.\n2. Running a machine learning model (e.g., ARIMA) to predict demand trends.\n3. Sending demand forecasts to the Orchestration Agent for decision-making.\n\nRules:\n- If past sales data is insufficient, request additional data before making predictions.\n- Ensure forecasts consider seasonal demand patterns.\n- Log all forecasts for tracking and debugging.",
+    "model_client_stream": false,
+    "reflect_on_tool_use": false,
+    "tool_call_summary_format": "{result}"
+  }
+}
