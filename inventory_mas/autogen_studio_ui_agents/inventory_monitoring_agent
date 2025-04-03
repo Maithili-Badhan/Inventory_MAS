@@ -1,0 +1,97 @@
+{
+  "provider": "autogen_agentchat.agents.AssistantAgent",
+  "component_type": "agent",
+  "version": 1,
+  "component_version": 1,
+  "description": "Monitors inventory levels and reports shortages or surplus.",
+  "label": "Inventory Management Agent",
+  "config": {
+    "name": "inventory_management",
+    "model_client": {
+      "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+      "component_type": "model",
+      "version": 1,
+      "component_version": 1,
+      "description": "Chat completion client for OpenAI hosted models.",
+      "label": "OpenAIChatCompletionClient",
+      "config": {
+        "model": "gpt-3.5-turbo",
+        "temperature": 0.2
+      }
+    },
+    "tools": [
+      {
+        "provider": "autogen_core.tools.FunctionTool",
+        "component_type": "tool",
+        "version": 1,
+        "component_version": 1,
+        "description": "Fetches current inventory levels from PostgreSQL.",
+        "label": "fetch_inventory_data",
+        "config": {
+          "source_code": "import psycopg2\nimport pandas as pd\n\ndef fetch_inventory_data():\n    conn = psycopg2.connect(\n        dbname='inventory_db', user='postgres', password='your_password', host='localhost', port='5432'\n    )\n    query = 'SELECT * FROM inventory_monitoring;'\n    df = pd.read_sql(query, conn)\n    conn.close()\n    return df.to_dict(orient='records')",
+          "name": "fetch_inventory_data",
+          "description": "Retrieves inventory data from the PostgreSQL database.",
+          "global_imports": [
+            {
+              "module": "psycopg2",
+              "imports": []
+            },
+            {
+              "module": "pandas",
+              "imports": []
+            }
+          ],
+          "has_cancellation_support": false
+        }
+      },
+      {
+        "provider": "autogen_core.tools.FunctionTool",
+        "component_type": "tool",
+        "version": 1,
+        "component_version": 1,
+        "description": "Identifies low-stock items and suggests restocking.",
+        "label": "check_low_stock",
+        "config": {
+          "source_code": "def check_low_stock(inventory_data: list, threshold: int = 10):\n    low_stock_items = [item for item in inventory_data if item['quantity'] < threshold]\n    return low_stock_items if low_stock_items else 'All items are sufficiently stocked.'",
+          "name": "check_low_stock",
+          "description": "Checks which items are below the restocking threshold.",
+          "global_imports": [],
+          "has_cancellation_support": false
+        }
+      },
+      {
+        "provider": "autogen_core.tools.FunctionTool",
+        "component_type": "tool",
+        "version": 1,
+        "component_version": 1,
+        "description": "Sends a restocking alert to the Orchestration Agent.",
+        "label": "send_restock_alert",
+        "config": {
+          "source_code": "def send_restock_alert(low_stock_items: list):\n    agent = AgentManager.get_agent('orchestration')\n    if agent:\n        message = f'Restock Alert: Low stock detected for items: {low_stock_items}'\n        agent.receive_message(message)\n        return 'Restock alert sent successfully.'\n    return 'Orchestration Agent not found.'",
+          "name": "send_restock_alert",
+          "description": "Notifies the Orchestration Agent about low-stock items.",
+          "global_imports": [
+            {
+              "module": "autogen",
+              "imports": ["AgentManager"]
+            }
+          ],
+          "has_cancellation_support": false
+        }
+      }
+    ],
+    "model_context": {
+      "provider": "autogen_core.model_context.UnboundedChatCompletionContext",
+      "component_type": "chat_completion_context",
+      "version": 1,
+      "component_version": 1,
+      "description": "An unbounded chat completion context that keeps a view of all the messages.",
+      "label": "UnboundedChatCompletionContext",
+      "config": {}
+    },
+    "system_message": "You are an Inventory Management Agent responsible for monitoring stock levels in the PostgreSQL database. \n\nYour tasks include:\n1. Fetching current inventory data.\n2. Checking for low-stock items.\n3. Sending restocking alerts to the Orchestration Agent.\n\nRules:\n- If an item has less than 10 units, send a restocking request.\n- If stock is critically low, escalate the alert to the Orchestration Agent.\n- Log all stock updates for tracking and debugging.",
+    "model_client_stream": false,
+    "reflect_on_tool_use": false,
+    "tool_call_summary_format": "{result}"
+  }
+}
