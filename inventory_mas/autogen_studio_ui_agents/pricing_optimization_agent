@@ -1,0 +1,106 @@
+{
+  "provider": "autogen_agentchat.agents.AssistantAgent",
+  "component_type": "agent",
+  "version": 1,
+  "component_version": 1,
+  "description": "Optimizes product pricing based on demand, inventory levels, and market trends.",
+  "label": "Pricing Optimization Agent",
+  "config": {
+    "name": "pricing_optimization",
+    "model_client": {
+      "provider": "autogen_ext.models.openai.OpenAIChatCompletionClient",
+      "component_type": "model",
+      "version": 1,
+      "component_version": 1,
+      "description": "Chat completion client for OpenAI hosted models.",
+      "label": "OpenAIChatCompletionClient",
+      "config": {
+        "model": "gpt-3.5-turbo",
+        "temperature": 0.2
+      }
+    },
+    "tools": [
+      {
+        "provider": "autogen_core.tools.FunctionTool",
+        "component_type": "tool",
+        "version": 1,
+        "component_version": 1,
+        "description": "Loads pricing data from a CSV file.",
+        "label": "load_pricing_data",
+        "config": {
+          "source_code": "import pandas as pd\n\ndef load_pricing_data(csv_path='pricing_optimization.csv'):\n    df = pd.read_csv(csv_path)\n    return df.to_dict(orient='records')",
+          "name": "load_pricing_data",
+          "description": "Loads pricing data from a CSV file.",
+          "global_imports": [
+            {
+              "module": "pandas",
+              "imports": []
+            }
+          ],
+          "has_cancellation_support": false
+        }
+      },
+      {
+        "provider": "autogen_core.tools.FunctionTool",
+        "component_type": "tool",
+        "version": 1,
+        "component_version": 1,
+        "description": "Predicts optimal pricing based on market trends and inventory.",
+        "label": "predict_optimal_prices",
+        "config": {
+          "source_code": "import numpy as np\nfrom sklearn.linear_model import LinearRegression\n\ndef predict_optimal_prices(pricing_data: list):\n    df = pd.DataFrame(pricing_data)\n    if 'demand' not in df.columns or 'current_price' not in df.columns:\n        return 'Invalid pricing data format.'\n    X = df[['demand']]\n    y = df['current_price']\n    model = LinearRegression()\n    model.fit(X, y)\n    df['optimal_price'] = model.predict(X) * 1.05  # Adjusting price slightly for optimization\n    return df[['product_id', 'optimal_price']].to_dict(orient='records')",
+          "name": "predict_optimal_prices",
+          "description": "Uses an ML model to determine optimal pricing based on demand.",
+          "global_imports": [
+            {
+              "module": "numpy",
+              "imports": []
+            },
+            {
+              "module": "sklearn.linear_model",
+              "imports": ["LinearRegression"]
+            },
+            {
+              "module": "pandas",
+              "imports": []
+            }
+          ],
+          "has_cancellation_support": false
+        }
+      },
+      {
+        "provider": "autogen_core.tools.FunctionTool",
+        "component_type": "tool",
+        "version": 1,
+        "component_version": 1,
+        "description": "Sends updated pricing recommendations to the Orchestration Agent.",
+        "label": "send_pricing_update",
+        "config": {
+          "source_code": "def send_pricing_update(optimal_prices: list):\n    agent = AgentManager.get_agent('orchestration')\n    if agent:\n        message = f'Pricing Update: Recommended prices: {optimal_prices}'\n        agent.receive_message(message)\n        return 'Pricing update sent successfully.'\n    return 'Orchestration Agent not found.'",
+          "name": "send_pricing_update",
+          "description": "Notifies the Orchestration Agent about updated product prices.",
+          "global_imports": [
+            {
+              "module": "autogen",
+              "imports": ["AgentManager"]
+            }
+          ],
+          "has_cancellation_support": false
+        }
+      }
+    ],
+    "model_context": {
+      "provider": "autogen_core.model_context.UnboundedChatCompletionContext",
+      "component_type": "chat_completion_context",
+      "version": 1,
+      "component_version": 1,
+      "description": "An unbounded chat completion context that keeps a view of all the messages.",
+      "label": "UnboundedChatCompletionContext",
+      "config": {}
+    },
+    "system_message": "You are a Pricing Optimization Agent responsible for analyzing demand, inventory levels, and market trends to suggest optimal pricing.\n\nYour tasks include:\n1. Loading pricing and demand data.\n2. Running an ML model to determine optimal prices.\n3. Sending pricing recommendations to the Orchestration Agent.\n\nRules:\n- If demand is high, increase price slightly (+5%).\n- If inventory is critically low, maintain price or increase moderately.\n- If demand is low, consider decreasing the price.\n- Log all pricing changes for debugging and tracking.",
+    "model_client_stream": false,
+    "reflect_on_tool_use": false,
+    "tool_call_summary_format": "{result}"
+  }
+}
